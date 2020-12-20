@@ -1,6 +1,10 @@
+#![allow(incomplete_features)]
+#![feature(generic_associated_types)]
+
 pub mod bar;
 pub mod config;
 pub mod event;
+pub mod xcb;
 
 pub struct TestBar;
 
@@ -9,7 +13,11 @@ impl bar::Bar for TestBar {
         Self
     }
 
-    fn bar_builder(&mut self) -> config::BarBuilder {
+    fn get_screens(&self) -> bar::Screens {
+        bar::Screens::AllScreens
+    }
+
+    fn get_bar_builder(&self) -> config::BarBuilder {
         config::BarBuilder::default()
             .title("test")
             .docking(config::DockDirection::Left)
@@ -18,11 +26,15 @@ impl bar::Bar for TestBar {
             .z_index(config::ZIndex::AboveEverything)
     }
 
-    fn get_event_types(&mut self) -> event::EventTypes {
+    fn get_event_types(&self) -> event::EventTypes {
         event::CLICK | event::QUIT
     }
 
-    fn on_click<Wm: bar::WmAdapter<Self>>(&mut self, _bar: &mut Wm, event: event::ClickEvent) {
+    fn on_click<'a, Wm: bar::WmAdapter<Self>, WmBar: bar::WmAdapterBar<'a, Self, Wm>>(
+        &mut self,
+        _bar: &'a mut WmBar,
+        event: event::ClickEvent,
+    ) {
         println!("click {:?}", event);
     }
 
@@ -31,4 +43,8 @@ impl bar::Bar for TestBar {
     }
 }
 
-fn main() {}
+fn main() {
+    if let Err(e) = bar::run_xcb::<TestBar>() {
+        println!("\x1b[1;31mfatal error: {}", e);
+    }
+}

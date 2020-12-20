@@ -31,4 +31,3 @@ codegen-units = 1
 
 [dependencies]
 xcb = "0.9"
-async-trait = "0.1"
