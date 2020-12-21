@@ -7,5 +7,6 @@ pub enum Event {
 }
 
 pub type EventTypes = u32;
-pub const CLICK: u32 = 1;
-pub const QUIT: u32 = 2;
+pub const QUIT: u32 = 1;
+pub const CLICK: u32 = 2;
+pub const MOUSE_MOVE: u32 = 4;

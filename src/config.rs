@@ -22,6 +22,8 @@ pub struct BarBuilder {
     margin_left: i32,
     margin_right: i32,
     z_index: ZIndex,
+    transparency: bool,
+    width: u32,
 }
 
 impl Default for BarBuilder {
@@ -32,6 +34,8 @@ impl Default for BarBuilder {
             margin_left: 0,
             margin_right: 0,
             z_index: ZIndex::BelowEverything,
+            transparency: false,
+            width: 20,
         }
     }
 }
@@ -59,8 +63,16 @@ impl BarBuilder {
         self
     }
 
+    pub fn margin(mut self, left: i32, right: i32) -> Self {
+        self.margin_left = left;
+        self.margin_right = right;
+        self
+    }
+
     g_s_etter! {get_docking, docking, DockDirection}
     g_s_etter! {get_margin_left, margin_left, i32}
     g_s_etter! {get_margin_right, margin_right, i32}
     g_s_etter! {get_z_index, z_index, ZIndex}
+    g_s_etter! {get_transparency, transparency, bool}
+    g_s_etter! {get_width, width, u32}
 }

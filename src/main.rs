@@ -3,6 +3,7 @@
 
 pub mod bar;
 pub mod config;
+pub mod error;
 pub mod event;
 pub mod xcb;
 
@@ -13,17 +14,16 @@ impl bar::Bar for TestBar {
         Self
     }
 
-    fn get_screens(&self) -> bar::Screens {
-        bar::Screens::AllScreens
-    }
-
     fn get_bar_builder(&self) -> config::BarBuilder {
         config::BarBuilder::default()
             .title("test")
-            .docking(config::DockDirection::Left)
+            .docking(config::DockDirection::Bottom)
             .margin_left(50)
             .margin_right(50)
+            .margin(80, 20)
             .z_index(config::ZIndex::AboveEverything)
+            .transparency(true)
+            .width(35)
     }
 
     fn get_event_types(&self) -> event::EventTypes {
