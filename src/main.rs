@@ -1,11 +1,10 @@
-#![allow(incomplete_features)]
-#![feature(generic_associated_types)]
+#![feature(array_value_iter)]
 
 pub mod bar;
 pub mod config;
 pub mod error;
 pub mod event;
-pub mod xcb;
+pub mod x11;
 
 pub struct TestBar;
 
@@ -18,9 +17,7 @@ impl bar::Bar for TestBar {
         config::BarBuilder::default()
             .title("test")
             .docking(config::DockDirection::Bottom)
-            .margin_left(50)
-            .margin_right(50)
-            .margin(80, 20)
+            .margin(0, 0)
             .z_index(config::ZIndex::AboveEverything)
             .transparency(true)
             .width(35)
@@ -30,9 +27,9 @@ impl bar::Bar for TestBar {
         event::CLICK | event::QUIT
     }
 
-    fn on_click<'a, Wm: bar::WmAdapter<Self>, WmBar: bar::WmAdapterBar<'a, Self, Wm>>(
+    fn on_click<'a, Wm: bar::WmAdapterExt<Self>>(
         &mut self,
-        _bar: &'a mut WmBar,
+        _bar: &mut <Wm as bar::WmAdapterGetBar<'a, Self>>::AdapterBar,
         event: event::ClickEvent,
     ) {
         println!("click {:?}", event);
@@ -44,7 +41,7 @@ impl bar::Bar for TestBar {
 }
 
 fn main() {
-    if let Err(e) = bar::run_xcb::<TestBar>() {
+    if let Err(e) = bar::run_x11::<TestBar>() {
         println!("\x1b[1;31mfatal error: {}", e);
     }
 }

@@ -10,11 +10,10 @@ pub trait WmScreen {
 pub trait WmAdapter<B: Bar>: Sized {
     type Error: std::error::Error;
     type Surface;
-    type Screen<'s>: WmScreen;
-    type AdapterBar<'a>: WmAdapterBar<'a, B, Self>;
+    type Screen: WmScreen;
     fn new(cfg: &BarBuilder) -> Result<Self, Self::Error>;
     fn get_screen_count(&self) -> usize;
-    fn get_screen(&'_ self, n: usize) -> Option<Self::Screen<'_>>;
+    fn get_screen(&self, n: usize) -> Option<&Self::Screen>;
 }
 
 pub trait WmAdapterBar<'a, B: Bar, Wm: WmAdapter<B>>: Sized {
@@ -22,7 +21,7 @@ pub trait WmAdapterBar<'a, B: Bar, Wm: WmAdapter<B>>: Sized {
         bar: &B,
         wm: &'a Wm,
         cfg: &BarBuilder,
-        screen: Wm::Screen<'a>,
+        screen: &Wm::Screen,
     ) -> Result<Self, Wm::Error>;
     fn set_docking(&mut self, dir: DockDirection) -> Result<(), Wm::Error>;
     fn set_margin(&mut self, left: i32, right: i32) -> Result<(), Wm::Error>;
@@ -30,16 +29,13 @@ pub trait WmAdapterBar<'a, B: Bar, Wm: WmAdapter<B>>: Sized {
     fn pop_event(&mut self) -> core::task::Poll<Result<event::Event, Wm::Error>>;
 }
 
-fn create_adapter_bar<'a, B: Bar, Wm: WmAdapter<B>>(
-    bar: &B,
-    wm: &'a Wm,
-    builder: &BarBuilder,
-    screen: Wm::Screen<'a>,
-) -> Result<Wm::AdapterBar<'a>, Wm::Error> {
-    Wm::AdapterBar::<'a>::new(bar, wm, builder, screen)
+pub trait WmAdapterGetBar<'a, B: Bar>: WmAdapter<B> {
+    type AdapterBar: WmAdapterBar<'a, B, Self>;
 }
 
-pub fn run<B: Bar, Wm: WmAdapter<B>>() -> Result<(), RunnerError<Wm::Error>> {
+pub trait WmAdapterExt<B: Bar>: WmAdapter<B> + for<'a> WmAdapterGetBar<'a, B> {}
+
+pub fn run<B: Bar, Wm: WmAdapterExt<B>>() -> Result<(), RunnerError<Wm::Error>> {
     let bar = B::new();
     let builder = bar.get_bar_builder();
     let wm = Wm::new(&builder)?;
@@ -48,10 +44,12 @@ pub fn run<B: Bar, Wm: WmAdapter<B>>() -> Result<(), RunnerError<Wm::Error>> {
         let screen = wm
             .get_screen(i)
             .ok_or_else(|| RunnerError::Custom(format!("failed to query screen {}", i)))?;
-        bars.push(create_adapter_bar(&bar, &wm, &builder, screen)?);
+        fn create_bar<'a, B: Bar, Wm: WmAdapterExt<B>>(bar: &B, wm: &'a Wm, builder: &crate::config::BarBuilder, screen: &Wm::Screen) -> Result<<Wm as WmAdapterGetBar<'a, B>>::AdapterBar, Wm::Error> {
+            <Wm as WmAdapterGetBar<'a, B>>::AdapterBar::new(bar, wm, builder, screen)
+        }
+        bars.push(create_bar(&bar, &wm, &builder, screen)?);
     }
     loop {}
-    Ok(())
 }
 
 pub trait Bar: Sized + 'static {
@@ -65,17 +63,19 @@ pub trait Bar: Sized + 'static {
     fn get_event_types(&self) -> event::EventTypes {
         0
     }
-    fn on_window_open<Wm: WmAdapter<Self>>(&mut self, _bar: &mut Wm) {}
-    fn on_click<'a, Wm: WmAdapter<Self>, WmBar: WmAdapterBar<'a, Self, Wm>>(
+    fn on_bar_start<'a, Wm: WmAdapterExt<Self>>(
         &mut self,
-        _bar: &'a mut WmBar,
+        _bar: &mut <Wm as WmAdapterGetBar<'a, Self>>::AdapterBar) {}
+    fn on_click<'a, Wm: WmAdapterExt<Self>>(
+        &mut self,
+        _bar: &mut <Wm as WmAdapterGetBar<'a, Self>>::AdapterBar,
         _event: event::ClickEvent,
     ) {
     }
     fn on_quit(&mut self) {}
 }
 
-pub fn run_xcb<B: Bar>(
-) -> Result<(), RunnerError<<crate::xcb::XcbAdapter<B> as WmAdapter<B>>::Error>> {
-    run::<B, crate::xcb::XcbAdapter<B>>()
+pub fn run_x11<B: Bar>(
+) -> Result<(), RunnerError<<crate::x11::X11Adapter<B, x11rb::rust_connection::RustConnection> as WmAdapter<B>>::Error>> {
+    run::<B, crate::x11::X11Adapter<B, x11rb::rust_connection::RustConnection>>()
 }
