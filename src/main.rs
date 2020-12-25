@@ -1,4 +1,5 @@
 #![feature(array_value_iter)]
+#![feature(min_const_generics)]
 
 pub mod bar;
 pub mod config;

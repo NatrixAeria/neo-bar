@@ -17,12 +17,7 @@ pub trait WmAdapter<B: Bar>: Sized {
 }
 
 pub trait WmAdapterBar<'a, B: Bar, Wm: WmAdapter<B>>: Sized {
-    fn new(
-        bar: &B,
-        wm: &'a Wm,
-        cfg: &BarBuilder,
-        screen: &Wm::Screen,
-    ) -> Result<Self, Wm::Error>;
+    fn new(bar: &B, wm: &'a Wm, cfg: &BarBuilder, screen: &Wm::Screen) -> Result<Self, Wm::Error>;
     fn set_docking(&mut self, dir: DockDirection) -> Result<(), Wm::Error>;
     fn set_margin(&mut self, left: i32, right: i32) -> Result<(), Wm::Error>;
     fn blit(&mut self, surface: &Wm::Surface, x: i32, y: i32) -> Result<(), Wm::Error>;
@@ -44,7 +39,12 @@ pub fn run<B: Bar, Wm: WmAdapterExt<B>>() -> Result<(), RunnerError<Wm::Error>> 
         let screen = wm
             .get_screen(i)
             .ok_or_else(|| RunnerError::Custom(format!("failed to query screen {}", i)))?;
-        fn create_bar<'a, B: Bar, Wm: WmAdapterExt<B>>(bar: &B, wm: &'a Wm, builder: &crate::config::BarBuilder, screen: &Wm::Screen) -> Result<<Wm as WmAdapterGetBar<'a, B>>::AdapterBar, Wm::Error> {
+        fn create_bar<'a, B: Bar, Wm: WmAdapterExt<B>>(
+            bar: &B,
+            wm: &'a Wm,
+            builder: &crate::config::BarBuilder,
+            screen: &Wm::Screen,
+        ) -> Result<<Wm as WmAdapterGetBar<'a, B>>::AdapterBar, Wm::Error> {
             <Wm as WmAdapterGetBar<'a, B>>::AdapterBar::new(bar, wm, builder, screen)
         }
         bars.push(create_bar(&bar, &wm, &builder, screen)?);
@@ -65,7 +65,9 @@ pub trait Bar: Sized + 'static {
     }
     fn on_bar_start<'a, Wm: WmAdapterExt<Self>>(
         &mut self,
-        _bar: &mut <Wm as WmAdapterGetBar<'a, Self>>::AdapterBar) {}
+        _bar: &mut <Wm as WmAdapterGetBar<'a, Self>>::AdapterBar,
+    ) {
+    }
     fn on_click<'a, Wm: WmAdapterExt<Self>>(
         &mut self,
         _bar: &mut <Wm as WmAdapterGetBar<'a, Self>>::AdapterBar,
@@ -75,7 +77,19 @@ pub trait Bar: Sized + 'static {
     fn on_quit(&mut self) {}
 }
 
-pub fn run_x11<B: Bar>(
-) -> Result<(), RunnerError<<crate::x11::X11Adapter<B, x11rb::rust_connection::RustConnection> as WmAdapter<B>>::Error>> {
+pub fn run_x11<B: Bar>() -> Result<
+    (),
+    RunnerError<
+        <crate::x11::X11Adapter<B, x11rb::rust_connection::RustConnection> as WmAdapter<B>>::Error,
+    >,
+> {
     run::<B, crate::x11::X11Adapter<B, x11rb::rust_connection::RustConnection>>()
+}
+
+#[cfg(feature = "wm-x11-xcb")]
+pub fn run_x11_xcb<B: Bar>() -> Result<
+    (),
+    RunnerError<<crate::x11::X11Adapter<B, x11rb::xcb_ffi::XCBConnection> as WmAdapter<B>>::Error>,
+> {
+    run::<B, crate::x11::X11Adapter<B, x11rb::xcb_ffi::XCBConnection>>()
 }
