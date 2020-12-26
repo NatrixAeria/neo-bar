@@ -90,7 +90,6 @@ pub fn run_x11<B: Bar>() -> Result<(), RunnerError<crate::x11::X11RustAdapterErr
 }
 
 #[cfg(feature = "wm-x11-xcb")]
-pub fn run_x11_xcb<B: Bar>(
-) -> Result<(), RunnerError<RunnerError<crate::x11::X11XcbAdapterError<B>>>> {
-    run::<B, crate::x11::X11XcbAdapter<B, x11rb::xcb_ffi::XCBConnection>>()
+pub fn run_x11_xcb<B: Bar>() -> Result<(), RunnerError<crate::x11::X11XcbAdapterError<B>>> {
+    run::<B, crate::x11::X11XcbAdapter<B>>()
 }
