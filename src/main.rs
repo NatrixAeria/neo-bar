@@ -9,6 +9,8 @@ pub mod x11;
 
 pub struct TestBar;
 
+pub mod type_shortcuts {}
+
 impl bar::Bar for TestBar {
     fn new() -> Self {
         Self

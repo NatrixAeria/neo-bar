@@ -10,6 +10,13 @@ use crate::bar::{Bar, WmAdapter, WmAdapterBar, WmAdapterExt, WmAdapterGetBar, Wm
 use crate::config::{BarBuilder, DockDirection};
 use crate::event;
 
+pub type X11RustAdapter<B> = X11Adapter<B, x11rb::rust_connection::RustConnection>;
+#[cfg(feature = "wm-x11-xcb")]
+pub type X11XcbAdapter<B> = X11Adapter<B, x11rb::xcb_ffi::XCBConnection>;
+pub type X11RustAdapterError<B> = <X11RustAdapter<B> as WmAdapter<B>>::Error;
+#[cfg(feature = "wm-x11-xcb")]
+pub type X11XcbAdapterError<B> = <X11XcbAdapter<B> as WmAdapter<B>>::Error;
+
 const fn _assert_u32_u8_align() -> bool {
     core::mem::align_of::<u32>() == core::mem::align_of::<u8>() * 4
         && core::mem::size_of::<u32>() == core::mem::size_of::<u8>() * 4
@@ -100,6 +107,23 @@ impl WmScreen for xproto::Screen {
     }
 }
 
+impl<B: Bar, C: X11Connection> X11Adapter<B, C> {
+    fn map_event(&self, ev: x11::protocol::Event) -> Option<event::Event> {
+        use x11::protocol::Event::*;
+        Some(match ev {
+            ButtonPress(ev) => event::Event::MouseDown(event::ClickEvent {
+                x: ev.root_x.into(),
+                y: ev.root_y.into(),
+            }),
+            ButtonRelease(ev) => event::Event::MouseUp(event::ClickEvent {
+                x: ev.root_x.into(),
+                y: ev.root_y.into(),
+            }),
+            _ => return (None, dbg!(ev)).0,
+        })
+    }
+}
+
 impl<B: Bar, C: X11Connection> WmAdapter<B> for X11Adapter<B, C> {
     type Error = Error;
     type Surface = Surface;
@@ -121,6 +145,24 @@ impl<B: Bar, C: X11Connection> WmAdapter<B> for X11Adapter<B, C> {
 
     fn get_screen(&self, n: usize) -> Option<&xproto::Screen> {
         self.con.setup().roots.get(n)
+    }
+
+    fn await_event(&self) -> Result<event::Event, Self::Error> {
+        loop {
+            return Ok(match self.map_event(self.con.wait_for_event()?) {
+                Some(v) => v,
+                _ => continue,
+            });
+        }
+    }
+
+    fn poll_event(&self) -> Result<Poll<event::Event>, Self::Error> {
+        Ok(
+            match self.con.poll_for_event()?.and_then(|v| self.map_event(v)) {
+                Some(v) => Poll::Ready(v),
+                None => Poll::Pending,
+            },
+        )
     }
 }
 
@@ -288,10 +330,6 @@ impl<'a, B: Bar, C: X11Connection> WmAdapterBar<'a, B, X11Adapter<B, C>>
     }
 
     fn blit(&mut self, _surface: &Surface, _x: i32, _y: i32) -> Result<(), Error> {
-        unimplemented!("NIY")
-    }
-
-    fn pop_event(&mut self) -> Poll<Result<event::Event, Error>> {
         unimplemented!("NIY")
     }
 }
